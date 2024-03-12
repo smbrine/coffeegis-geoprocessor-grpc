@@ -150,7 +150,7 @@ class Cafe(BaseModel):
 
     @classmethod
     async def get_full(
-        cls, db: AsyncSession, cafe_id: str
+        cls, db: AsyncSession, cafe_id: str,
     ):
         stmt = (
             select(cls)
@@ -494,5 +494,3 @@ class City(Base):
         return (
             f"Город {self.name_ru} ({self.code})"
         )
-
-

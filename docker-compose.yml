@@ -31,7 +31,7 @@ services:
   redis:
     image: redis:7.2.4
     command: redis-server --save "" --appendonly no
-    container_name: redis
+    container_name: redis-grpc
     environment:
       REDIS_PORT: 6379
       REDIS_DATABASES: 16
@@ -40,7 +40,7 @@ services:
       - ${PV_LOC}/redis/data:/data
     restart: always
     ports:
-      - "6379:6379"
+      - "6378:6379"
 
   zookeeper:
     image: zookeeper:3.9.1-jre-17
