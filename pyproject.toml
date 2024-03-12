@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "coffeegis-geoprocessor-proto"
+name = "coffeegis-geoprocessor-grpc"
 version = "0.1.0"
 description = ""
 authors = ["smbrine <smbrine@yandex.ru>"]
