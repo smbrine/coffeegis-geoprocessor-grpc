@@ -1,0 +1,76 @@
+syntax = "proto3";
+
+package main;
+
+import "google/protobuf/struct.proto";
+
+service CityCafeService {
+  rpc ListCafesPerCity(ListCafesPerCityRequest) returns (ListCafesPerCityResponse) {}
+  rpc SearchCafesByQueryPerCity(SearchCafesByQueryPerCityRequest) returns (SearchCafesByQueryPerCityResponse) {}
+}
+
+service ArbitraryJSONService {
+  rpc GetArbitraryJSON(GetArbitraryJSONRequest) returns (GetArbitraryJSONResponse) {}
+}
+
+message ListCafesPerCityRequest {
+  double latitude = 1;
+  double longitude = 2;
+  double radius = 3;
+  int32 len = 4;
+  int32 page = 5;
+  string city = 6;
+}
+
+message ListCafesPerCityResponse {
+  repeated Cafe cafes = 1;
+}
+
+message Cafe {
+  string name = 1;
+  double distance = 2;
+  string address = 3;
+  string logo = 4;
+  Review review = 5;
+  double latitude = 6;
+  double longitude = 7;
+}
+
+message Review {
+  string title = 1;
+  string body = 2;
+  string author = 3;
+  float rating = 4;
+}
+
+message SearchCafesByQueryPerCityRequest {
+  string query = 1;
+  double latitude = 2;
+  double longitude = 3;
+  double radius = 4;
+  int32 len = 5;
+  int32 page = 6;
+  string city = 7;
+}
+
+message SearchCafesByQueryPerCityResponse {
+  repeated Cafe cafes = 1;
+}
+
+message GetCafeDetailsRequest {
+  string cafeId = 1;
+}
+
+message CafeDetailsResponse {
+  string id = 1;
+  string menu = 2;
+  string schedule = 3;
+}
+
+message GetArbitraryJSONRequest {
+  google.protobuf.Struct json_data = 1;
+}
+
+message GetArbitraryJSONResponse {
+  google.protobuf.Struct json_data = 1;
+}

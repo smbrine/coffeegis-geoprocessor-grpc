@@ -1,0 +1,70 @@
+version: "3.8"
+services:
+  kafka:
+    image: bitnami/kafka:3.6.1
+    container_name: kafka
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENERS: INTERNAL://0.0.0.0:9092,PLAINTEXT://0.0.0.0:9093
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9092,PLAINTEXT://localhost:9093
+    volumes:
+      - ${PV_LOC}/kafka/kafka-data:/var/lib/kafka/data
+    restart: always
+    ports:
+      - "9093:9093"
+
+  postgres:
+    image: postgres:16.2-bullseye
+    container_name: postgres
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_USER: postgres
+    volumes:
+      - '${PV_LOC}/postgres/postgres-data:/var/lib/postgresql'
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7.2.4
+    command: redis-server --save "" --appendonly no
+    container_name: redis
+    environment:
+      REDIS_PORT: 6379
+      REDIS_DATABASES: 16
+      REDIS_REPLICATION_MODE: master
+    volumes:
+      - ${PV_LOC}/redis/data:/data
+    restart: always
+    ports:
+      - "6379:6379"
+
+  zookeeper:
+    image: zookeeper:3.9.1-jre-17
+    container_name: zookeeper
+    volumes:
+      - ${PV_LOC}/zk-data:/var/lib/zookeeper/data \
+      - ${PV_LOC}/zk-txn-logs:/var/lib/zookeeper/log \
+
+  kafka-ui:
+    container_name: kafka-ui
+    image: provectuslabs/kafka-ui:latest
+    depends_on:
+      - kafka
+    ports:
+      - ${KAFKA_UI_PORT}:8080
+    environment:
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+
+  elasicsearch:
+    container_name: elasticsearch
+    image: elasticsearch:8.12.2
+    ports:
+      - 9200:9200
+      - 9300:9300
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: false
