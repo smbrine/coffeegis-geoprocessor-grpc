@@ -21,7 +21,7 @@ from proto import (
 )
 import pickle
 from elasticsearch import AsyncElasticsearch
-from elasticsearch.exceptions import NotFoundError
+import elasticsearch
 
 
 logging.basicConfig(
@@ -48,11 +48,10 @@ sessionmanager.init(settings.POSTGRES_URL)
 async def clean_string(input_string):
     # Use a regular expression to replace non-letter and non-digit characters with a space
     cleaned_string = re.sub(
-        r"[^a-zA-Zа-яА-Я\d]", "", input_string
+        r"[^a-zA-Zа-яА-Я\d\- ]", "", input_string
     )
     # Convert to lowercase for uniformity
     cleaned_string = cleaned_string.lower()
-    print(cleaned_string)
     return cleaned_string
 
 
@@ -76,16 +75,17 @@ async def fetch_cafe_ids_elasticsearch():
     }
 
 
-async def sync_cafes_to_elasticsearch(session):
-    postgres_cafe_ids, elasticsearch_cafe_ids = (
-        await asyncio.gather(
-            *[
-                fetch_cafe_ids_postgres(session),
-                fetch_cafe_ids_elasticsearch(),
-            ]
+async def sync_cafes_to_elasticsearch(
+    session_factory,
+):
+    # Using session_factory to manage sessions within subtasks
+    async with session_factory() as session:
+        postgres_cafe_ids = (
+            await fetch_cafe_ids_postgres(session)
         )
-    )
-    print(elasticsearch_cafe_ids)
+        elasticsearch_cafe_ids = (
+            await fetch_cafe_ids_elasticsearch()
+        )
 
     to_add_to_es = (
         postgres_cafe_ids - elasticsearch_cafe_ids
@@ -93,11 +93,10 @@ async def sync_cafes_to_elasticsearch(session):
     to_remove_from_es = (
         elasticsearch_cafe_ids - postgres_cafe_ids
     )
-
     await asyncio.gather(
         *[
             add_cafe_to_elasticsearch(
-                session, cafe_id
+                session_factory, cafe_id
             )
             for cafe_id in to_add_to_es
         ],
@@ -113,11 +112,12 @@ async def sync_cafes_to_elasticsearch(session):
 
 
 async def add_cafe_to_elasticsearch(
-    session, cafe_id
+    session_factory, cafe_id
 ):
-    cafe_data = await serialize_cafe_data(
-        session, cafe_id
-    )
+    async with session_factory() as session:
+        cafe_data = await serialize_cafe_data(
+            session, cafe_id
+        )
     if cafe_data:
         await es.index(
             index="cafes",
@@ -136,8 +136,7 @@ async def serialize_cafe_data(session, cafe_id):
     )
     if not cafe:
         return None
-
-    return {
+    res = {
         "id": cafe_id,
         "name": await clean_string(
             cafe.company.name
@@ -149,6 +148,8 @@ async def serialize_cafe_data(session, cafe_id):
             cafe.geodata.address
         ),
     }
+    print(res)
+    return res
 
 
 async def serialize_cafe(
@@ -189,24 +190,42 @@ async def serialize_cafe(
     }
     return cafe
 
-async def fetch_cafe_details(cafe_id: str, session_factory, r = None) -> dict:
+
+async def fetch_cafe_details(
+    cafe_id: str, session_factory, r=None
+) -> dict:
     # Create a new session for this task
     async with session_factory() as session:
         # Your existing logic to fetch cafe details
         cache_key = f"cafes:full:{cafe_id}"
         if redis:
-            if details_bytes := await r.get(cache_key):
+            if details_bytes := await r.get(
+                cache_key
+            ):
                 return pickle.loads(details_bytes)
-        cafe_details = await models.Cafe.get_full(session, cafe_id)
+        cafe_details = await models.Cafe.get_full(
+            session, cafe_id
+        )
         if redis:
-            await r.set(cache_key, pickle.dumps(cafe_details), 180)
+            await r.set(
+                cache_key,
+                pickle.dumps(cafe_details),
+                180,
+            )
         return cafe_details
 
-async def fetch_multiple_cafes(cafe_ids: List[str], session_factory, r = None):
-    closest_cafes = await asyncio.gather(*[
-        fetch_cafe_details(cafe_id, session_factory, r)
-        for cafe_id in cafe_ids
-    ])
+
+async def fetch_multiple_cafes(
+    cafe_ids: List[str], session_factory, r=None
+):
+    closest_cafes = await asyncio.gather(
+        *[
+            fetch_cafe_details(
+                cafe_id, session_factory, r
+            )
+            for cafe_id in cafe_ids
+        ]
+    )
     return closest_cafes
 
 
@@ -215,7 +234,7 @@ class CafeServiceServicer(
 ):
 
     async def ListCafesPerCity(
-        self,  # I sincerely apologise for this function which is filled with anti-patterns.
+        self,  # I sincerely apologise for this function which is filled with antipatterns.
         request,  # I have appended it with different logics many times and at this moment
         context,  # I don't have enough time to completely rewrite it.
     ):
@@ -375,22 +394,31 @@ class CafeServiceServicer(
         logging.info(
             f"Searching cafes for query: {search_query} in city: {city}"
         )
-        global_cache_key = f"cafes:query:{search_query},{city}"
-        if resp_bytes := await redis.get(global_cache_key):
+        global_cache_key = (
+            f"cafes:query:{search_query},{city}"
+        )
+        if resp_bytes := await redis.get(
+            global_cache_key
+        ):
             return pickle.loads(resp_bytes)
+
         try:
             tokens = (
                 await clean_string(search_query)
             ).split(" ")
             clauses = []
             for token in tokens:
-                for field in ["name", "name_ru", "address"]:
+                for field in [
+                    "name",
+                    "name_ru",
+                    "address",
+                ]:
                     clauses.append(
                         {
                             "match": {
                                 field: {
                                     "query": token,
-                                    "fuzziness": "AUTO"
+                                    "fuzziness": "AUTO",
                                 }
                             }
                         }
@@ -406,7 +434,12 @@ class CafeServiceServicer(
                         }
                     )
 
-            payload = {"bool": {"should": clauses, "minimum_should_match": 1}}
+            payload = {
+                "bool": {
+                    "should": clauses,
+                    "minimum_should_match": 1,
+                }
+            }
             print(payload)
             es_response = await es.search(
                 index="cafes",
@@ -425,7 +458,13 @@ class CafeServiceServicer(
                     main_service_pb2.SearchCafesByQueryPerCityResponse()
                 )
 
-            closest_cafes = await fetch_multiple_cafes(cafe_ids, sessionmanager.session, redis)
+            closest_cafes = (
+                await fetch_multiple_cafes(
+                    cafe_ids,
+                    sessionmanager.session,
+                    redis,
+                )
+            )
             logging.debug(
                 f"Queried Cafes: {closest_cafes}"
             )
@@ -445,7 +484,11 @@ class CafeServiceServicer(
                     )
                 )
 
-            await redis.set(global_cache_key, pickle.dumps(response), 180)
+            await redis.set(
+                global_cache_key,
+                pickle.dumps(response),
+                180,
+            )
             return response
 
         except Exception as e:
@@ -461,23 +504,33 @@ class CafeServiceServicer(
 
 
 async def serve():
-    await es.delete_by_query(index="cafes", query={
-        "bool": {
-            "should": [
-                {
-                    "multi_match": {
-                        "query": "-",
-                        "fields": [
-                            "id"
-                        ],
-                        "fuzziness": "AUTO"
-                    }
+    try:
+        await es.delete_by_query(
+            index="cafes", query={"match_all": {}}
+        )
+    except elasticsearch.NotFoundError:
+        index_body = {
+            "settings": {
+                "number_of_shards": 1,
+                "number_of_replicas": 1,
+            },
+            "mappings": {
+                "properties": {
+                    "name": {"type": "text"},
+                    "name_ru": {"type": "text"},
+                    "address": {"type": "text"},
+                    "id": {"type": "text"},
                 }
-            ]
+            },
         }
-    })
-    async with sessionmanager.session() as session:
-        await sync_cafes_to_elasticsearch(session)
+        await es.indices.create(
+            index="cafes", body=index_body
+        )
+
+    await sync_cafes_to_elasticsearch(
+        sessionmanager.session
+    )
+
     server = grpc_aio.server()
     main_service_pb2_grpc.add_CityCafeServiceServicer_to_server(
         CafeServiceServicer(), server
