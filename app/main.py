@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import re
+import sys
 from decimal import Decimal
 from time import perf_counter_ns
 from typing import List
@@ -44,6 +45,7 @@ es = AsyncElasticsearch(
 
 sessionmanager.init(settings.POSTGRES_URL)
 
+global_times = []
 
 async def clean_string(input_string):
     # Use a regular expression to replace non-letter and non-digit characters with a space
@@ -169,22 +171,28 @@ async def serialize_cafe(
     logging.debug(
         f"Calculated distance: {distance}"
     )
-
     cafe = {
         "name": cafe_model.company.name,
         "address": cafe_model.geodata.address,
         "distance": distance,
         "latitude": cafe_model.geodata.latitude,
         "longitude": cafe_model.geodata.longitude,
-        "logo": cafe_model.company.logo,
-        "review": (
+        "roaster": (
             {
-                "title": cafe_model.review.title,
-                "body": cafe_model.review.body,
-                "author": cafe_model.review.author,
-                "rating": cafe_model.review.rating,
+                "name": cafe_model.roaster.name,
+                "website": cafe_model.roaster.website
+            } if cafe_model.roaster else {}
+        ),
+        "description": (
+            {
+                "location_description": cafe_model.description.location_description,
+                "interior_description": cafe_model.description.interior_description,
+                "menu_description": cafe_model.description.menu_description,
+                "place_history": cafe_model.description.place_history,
+                "arbitrary_description": cafe_model.description.arbitrary_description,
+                "image_uuid": cafe_model.description.image_uuid,
             }
-            if cafe_model.review
+            if cafe_model.description
             else {}
         ),
     }
@@ -250,9 +258,10 @@ class CafeServiceServicer(
             if response_bytes := await redis.get(
                 global_cache_key
             ):
-                return pickle.loads(
+                res = pickle.loads(
                     response_bytes
                 )
+                return res
             async with sessionmanager.session() as session:
                 city = request.city or "Moscow"
                 logging.info(
@@ -343,31 +352,36 @@ class CafeServiceServicer(
                     request.latitude,
                     request.longitude,
                 )
-                review = cafe.get("review", {})
+                description = cafe.get("description")
+                roaster = cafe.get("roaster")
                 cafe_obj = main_service_pb2.Cafe(
                     name=cafe.get("name"),
                     address=cafe.get("address"),
                     distance=cafe.get("distance"),
                     latitude=cafe.get("latitude"),
+                    roaster=(main_service_pb2.Roaster(name = roaster.get('name'), website=roaster.get('website'),) if roaster else None),
+
                     longitude=cafe.get(
                         "longitude"
                     ),
-                    review=(
-                        main_service_pb2.Review(
-                            title=review.get(
-                                "title", ""
+                    description=(
+                        main_service_pb2.Description(
+                            location_description=description.get(
+                                "location_description"
                             ),
-                            body=review.get(
-                                "body", ""
+                            interior_description=description.get(
+                                "interior_description"
                             ),
-                            author=review.get(
-                                "author", ""
+                            menu_description=description.get(
+                                "menu_description"
                             ),
-                            rating=review.get(
-                                "rating"
+                            place_history=description.get(
+                                "place_history"
                             ),
+                            arbitrary_description=description.get("arbitrary_description"),
+                            image_uuid=description.get("image_uuid"),
                         )
-                        if review
+                        if description
                         else None
                     ),
                 )
@@ -440,7 +454,6 @@ class CafeServiceServicer(
                     "minimum_should_match": 1,
                 }
             }
-            print(payload)
             es_response = await es.search(
                 index="cafes",
                 query=payload,
@@ -497,45 +510,51 @@ class CafeServiceServicer(
             )
             raise
 
-    async def GetCafeDetails(
+
+
+class ArbitraryJSONServiceServicer(
+    main_service_pb2_grpc.ArbitraryJSONServiceServicer
+):
+    async def GetArbitraryJSON(
         self, request, context
     ):
-        pass
-
+        return main_service_pb2.GetArbitraryJSONResponse(json_data=request.json_data)
 
 async def serve():
-    try:
-        await es.delete_by_query(
-            index="cafes", query={"match_all": {}}
-        )
-    except elasticsearch.NotFoundError:
-        index_body = {
-            "settings": {
-                "number_of_shards": 1,
-                "number_of_replicas": 1,
-            },
-            "mappings": {
-                "properties": {
-                    "name": {"type": "text"},
-                    "name_ru": {"type": "text"},
-                    "address": {"type": "text"},
-                    "id": {"type": "text"},
-                }
-            },
-        }
-        await es.indices.create(
-            index="cafes", body=index_body
-        )
-
-    await sync_cafes_to_elasticsearch(
-        sessionmanager.session
-    )
+    # try:
+    #     await es.delete_by_query(
+    #         index="cafes", query={"match_all": {}}
+    #     )
+    # except elasticsearch.NotFoundError:
+    #     index_body = {
+    #         "settings": {
+    #             "number_of_shards": 1,
+    #             "number_of_replicas": 1,
+    #         },
+    #         "mappings": {
+    #             "properties": {
+    #                 "name": {"type": "text"},
+    #                 "name_ru": {"type": "text"},
+    #                 "address": {"type": "text"},
+    #                 "id": {"type": "text"},
+    #             }
+    #         },
+    #     }
+    #     await es.indices.create(
+    #         index="cafes", body=index_body
+    #     )
+    #
+    # await sync_cafes_to_elasticsearch(
+    #     sessionmanager.session
+    # )
 
     server = grpc_aio.server()
     main_service_pb2_grpc.add_CityCafeServiceServicer_to_server(
         CafeServiceServicer(), server
     )
-
+    main_service_pb2_grpc.add_ArbitraryJSONServiceServicer_to_server(
+        ArbitraryJSONServiceServicer(), server
+    )
     listen_addr = "[::]:50051"
     service_names = (
         main_service_pb2.DESCRIPTOR.services_by_name[

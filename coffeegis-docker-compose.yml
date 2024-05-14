@@ -1,0 +1,149 @@
+version: "3.8"
+name: coffeegis
+services:
+
+  # geoprocessor-grpc
+  grpc-geoprocessor:
+    image: smbrine/coffeegis-geoprocessor-grpc:v1
+    pull_policy: always
+    container_name: geoprocessor-grpc
+    depends_on:
+      - migration-geoprocessor
+      - redis-geoprocessor
+      - elasticsearch-geoprocessor
+    environment:
+      POSTGRES_URL: "postgresql+asyncpg://postgres:${GEOPROCESSOR_DB_PASSWORD}@db-geoprocessor:5432/postgres"
+      REDIS_URL: "redis://redis-geoprocessor:6379/0"
+
+  migration-geoprocessor:
+    image: smbrine/coffeegis-geoprocessor-grpc:v1
+    pull_policy: always
+    container_name: migration-geoprocessor
+    depends_on:
+      - db-geoprocessor
+    command: poetry run alembic upgrade head
+    environment:
+      POSTGRES_URL: "postgresql+asyncpg://postgres:${GEOPROCESSOR_DB_PASSWORD}@db-geoprocessor:5432/postgres"
+      REDIS_URL: "redis://redis-geoprocessor:6379/0"
+
+  db-geoprocessor:
+    image: postgres:16.2-bullseye
+    container_name: db-geoprocessor
+    environment:
+      POSTGRES_PASSWORD: "${GEOPROCESSOR_DB_PASSWORD}"
+      POSTGRES_USER: "postgres"
+    volumes:
+      - "${PV_LOC}/geoprocessor/postgres/postgres-data:/var/lib/postgresql"
+
+  redis-geoprocessor:
+    image: redis:7.2.4
+    container_name: redis-geoprocessor
+    environment:
+      REDIS_PORT: 6379
+      REDIS_DATABASES: 16
+      REDIS_REPLICATION_MODE: master
+    volumes:
+      - "${PV_LOC}/geoprocessor/redis/data:/data"
+    restart: always
+
+  elasticsearch-geoprocessor:
+    image: elasticsearch:8.12.2
+    container_name: elasticsearch-geoprocessor
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+
+  admin-geoprocessor:
+    image: smbrine/coffeegis-geoprocessor-admin:v1
+    pull_policy: always
+    container_name: admin-geoprocessor
+    restart: always
+    depends_on:
+      - migration-geoprocessor
+    environment:
+      POSTGRES_URL: "postgresql+asyncpg://postgres:${GEOPROCESSOR_DB_PASSWORD}@db-geoprocessor:5432/postgres"
+    ports:
+      - '9991:9094'
+
+  # telegram-bot
+  telegram-bot:
+    image: smbrine/coffeegis-telegram-bot:v1
+    pull_policy: always
+    container_name: telegram-bot
+    restart: always
+    depends_on:
+      - migration-telegram
+      - db-telegram
+      - redis-telegram
+    environment:
+      TG_BOT_KEY: "${TG_BOT_KEY}"
+      DEBUG: "false"
+      PUBLIC_ADDR: "${WEBHOOK_ADDR}"
+      BIND_PORT: 8808
+      BIND_HOST: "0.0.0.0"
+      POSTGRES_URL: "postgresql+asyncpg://postgres:${TELEGRAM_DB_PASSWORD}@db-telegram:5432/postgres"
+      ADMIN_CHAT_ID: "-1001996373624"
+      REDIS_URL: "redis://redis-telegram:6379/0"
+    ports:
+      - '9990:8808'
+
+  migration-telegram:
+    image: smbrine/coffeegis-telegram-bot:v1
+    pull_policy: always
+    container_name: migration-telegram
+    command: alembic upgrade head
+    depends_on:
+      - db-telegram
+    environment:
+      POSTGRES_URL: "postgresql+asyncpg://postgres:${TELEGRAM_DB_PASSWORD}@db-telegram:5432/postgres"
+      TG_BOT_KEY: "${TG_BOT_KEY}"
+      DEBUG: "false"
+      PUBLIC_ADDR: "${WEBHOOK_ADDR}"
+      BIND_PORT: 8808
+      BIND_HOST: "0.0.0.0"
+      ADMIN_CHAT_ID: "-1001996373624"
+      REDIS_URL: "redis://redis-telegram:6379/0"
+
+  db-telegram:
+    image: postgres:16.2-bullseye
+    container_name: db-telegram
+    environment:
+      POSTGRES_PASSWORD: "${TELEGRAM_DB_PASSWORD}"
+      POSTGRES_USER: "postgres"
+    volumes:
+      - "${PV_LOC}/telegram/postgres/postgres-data:/var/lib/postgresql"
+
+  redis-telegram:
+    image: redis:7.2.4
+    container_name: redis-telegram
+    command: redis-server --save "" --appendonly no
+    environment:
+      REDIS_PORT: 6379
+      REDIS_DATABASES: 16
+      REDIS_REPLICATION_MODE: master
+    volumes:
+      - "${PV_LOC}/telegram/redis/data:/data"
+    restart: always
+
+
+  # images-cdn
+  images-cdn:
+    image: smbrine/coffeegis-images-cdn:v2
+    pull_policy: always
+    container_name: images-cdn
+    volumes:
+      - "${PV_LOC}/cdn/images:/app/uploaded_images"
+    environment:
+      POSTGRES_URL: "postgresql+asyncpg://postgres:${CDN_DB_PASSWORD}@db-cdn:5432/postgres"
+      DEBUG: "false"
+      LISTEN_ADDR: "0.0.0.0"
+      LISTEN_PORT: 8080
+
+  db-cdn:
+    image: postgres:16.2-bullseye
+    container_name: db-cdn
+    environment:
+      POSTGRES_PASSWORD: "${CDN_DB_PASSWORD}"
+      POSTGRES_USER: "postgres"
+    volumes:
+      - "${PV_LOC}/images-cdn/postgres/postgres-data:/var/lib/postgresql"

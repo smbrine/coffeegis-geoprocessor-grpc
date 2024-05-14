@@ -30,17 +30,25 @@ message Cafe {
   string name = 1;
   double distance = 2;
   string address = 3;
-  string logo = 4;
-  Review review = 5;
+  string photo = 4;
+  Description description = 5;
   double latitude = 6;
   double longitude = 7;
+  Roaster roaster = 8;
 }
 
-message Review {
-  string title = 1;
-  string body = 2;
-  string author = 3;
-  float rating = 4;
+message Description {
+  string location_description = 1;
+  string interior_description = 2;
+  string menu_description = 3;
+  string place_history = 4;
+  string arbitrary_description = 5;
+  string image_uuid = 6;
+}
+
+message Roaster {
+  string name = 1;
+  string website = 2;
 }
 
 message SearchCafesByQueryPerCityRequest {

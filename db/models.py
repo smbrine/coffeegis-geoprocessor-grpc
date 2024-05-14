@@ -23,6 +23,7 @@ from sqlalchemy.orm import (
     selectinload,
 )
 
+
 from db.main import Base
 
 
@@ -136,10 +137,22 @@ class Cafe(BaseModel):
         uselist=False,
     )
 
-    review = relationship(
-        "Review",
+    description = relationship(
+        "Description",
         back_populates="cafe",
         uselist=False,
+    )
+
+    roaster = relationship(
+        "Roaster", back_populates="receivers"
+    )
+
+    roaster_id = Column(
+        String,
+        ForeignKey(
+            "roasters.id", ondelete="CASCADE"
+        ),
+        unique=False,
     )
 
     @classmethod
@@ -162,8 +175,9 @@ class Cafe(BaseModel):
                 selectinload(
                     cls.menu
                 ).selectinload(Menu.entries),
-                selectinload(cls.review),
+                selectinload(cls.description),
                 selectinload(cls.geodata),
+                selectinload(cls.roaster)
             )
         )
         result = await db.execute(stmt)
@@ -288,22 +302,45 @@ class Geodata(BaseModel):
             return f"{self.address}"
 
 
-class Review(BaseModel):
-    __tablename__ = "reviews"
-    rating = Column(
-        Float,
-        unique=False,
-        nullable=False,
+class Roaster(BaseModel):
+    __tablename__ = 'roasters'
+    name = Column(
+        String, nullable=False
     )
-    title = Column(
-        String,
-        nullable=False,
+    website = Column(
+        String, nullable=True
     )
-    body = Column(
+    receivers = relationship(
+        "Cafe", back_populates="roaster"
+    )
+
+
+class Description(BaseModel):
+    __tablename__ = "descriptions"
+    location_description = Column(
         String,
         nullable=True,
     )
-    author = Column(String)
+    interior_description = Column(
+        String,
+        nullable=True,
+    )
+    menu_description = Column(
+        String,
+        nullable=True,
+    )
+    place_history = Column(
+        String,
+        nullable=True,
+    )
+    arbitrary_description = Column(
+        String,
+        nullable=True,
+    )
+    image_uuid = Column(
+        String,
+        nullable=True
+    )
     cafe_id = Column(
         String,
         ForeignKey(
@@ -313,12 +350,12 @@ class Review(BaseModel):
     )
     cafe = relationship(
         "Cafe",
-        back_populates="review",
+        back_populates="description",
         lazy="joined",
     )
 
     def __repr__(self):
-        return f'{self.author}: {self.title[:40] + ("..." if len(self.title) > 40 else "")}'
+        return f'{self.interior_description}'
 
 
 class Menu(BaseModel):
