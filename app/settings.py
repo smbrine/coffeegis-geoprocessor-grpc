@@ -6,7 +6,7 @@ load_dotenv()
 
 class Settings(BaseSettings):
     POSTGRES_URL: str
-    DEBUG: bool = False
+    DEBUG: bool = True
     REDIS_URL: str
 
     class Config:

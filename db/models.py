@@ -97,7 +97,7 @@ class Company(BaseModel):
     description_ru = Column(
         String, default="Нет описания."
     )
-    logo = Column(String, default=None)
+    website = Column(String, default=None)
 
     cafes = relationship(
         "Cafe",
@@ -143,17 +143,10 @@ class Cafe(BaseModel):
         uselist=False,
     )
 
-    roaster = relationship(
-        "Roaster", back_populates="receivers"
+    roasters = relationship(
+        "Roaster", back_populates="receivers", uselist=True
     )
 
-    roaster_id = Column(
-        String,
-        ForeignKey(
-            "roasters.id", ondelete="CASCADE"
-        ),
-        unique=False,
-    )
 
     @classmethod
     async def get_ids(cls, db: AsyncSession):
@@ -177,7 +170,7 @@ class Cafe(BaseModel):
                 ).selectinload(Menu.entries),
                 selectinload(cls.description),
                 selectinload(cls.geodata),
-                selectinload(cls.roaster)
+                selectinload(cls.roaster),
             )
         )
         result = await db.execute(stmt)
@@ -303,13 +296,9 @@ class Geodata(BaseModel):
 
 
 class Roaster(BaseModel):
-    __tablename__ = 'roasters'
-    name = Column(
-        String, nullable=False
-    )
-    website = Column(
-        String, nullable=True
-    )
+    __tablename__ = "roasters"
+    name = Column(String, nullable=False)
+    website = Column(String, nullable=True)
     receivers = relationship(
         "Cafe", back_populates="roaster"
     )
@@ -337,10 +326,7 @@ class Description(BaseModel):
         String,
         nullable=True,
     )
-    image_uuid = Column(
-        String,
-        nullable=True
-    )
+    image_uuid = Column(String, nullable=True)
     cafe_id = Column(
         String,
         ForeignKey(
@@ -355,7 +341,16 @@ class Description(BaseModel):
     )
 
     def __repr__(self):
-        return f'{self.interior_description}'
+        text = str(
+            self.location_description
+            or self.interior_description
+            or self.menu_description
+            or self.place_history
+            or self.arbitrary_description,
+        )
+        return (
+            text if len(text) <= 70 else text[:69]
+        )
 
 
 class Menu(BaseModel):
@@ -475,14 +470,56 @@ class Country(Base):
     def __repr__(self):
         return f"{self.name_ru} ({self.code})"
 
+    @classmethod
+    async def get_cafes(
+        cls,
+        db: AsyncSession,
+        country: str = "Russia",
+        skip: int = 0,
+        limit: int = 100,
+    ):
+        stmt = (
+            select(
+                Geodata.latitude,
+                Geodata.longitude,
+                Geodata.cafe_id,
+            )
+            .join(Geodata.country)
+            .filter(Country.name == country)
+            .offset(skip)
+            .limit(limit)
+        )
+
+        result = await db.execute(stmt)
+        return result.all()
+
+    @classmethod
+    async def get_all_cafes_regardless(
+        cls,
+        db: AsyncSession,
+        skip: int = 0,
+        limit: int = 100,
+    ):
+        stmt = (
+            select(
+                Geodata.latitude,
+                Geodata.longitude,
+                Geodata.cafe_id,
+            )
+            .join(Geodata.country)
+            .offset(skip)
+            .limit(limit)
+        )
+
+        result = await db.execute(stmt)
+        return result.all()
+
 
 class City(Base):
     __tablename__ = "cities"
 
     id = Column(Integer, primary_key=True)
-    code = Column(
-        String, unique=True, nullable=False
-    )
+    code = Column(String, nullable=False)
     name = Column(
         String,
         unique=True,

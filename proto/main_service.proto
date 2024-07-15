@@ -20,6 +20,8 @@ message ListCafesPerCityRequest {
   int32 len = 4;
   int32 page = 5;
   string city = 6;
+  bool bypass_cache = 7;
+  bool drop_cache = 8;
 }
 
 message ListCafesPerCityResponse {
@@ -35,6 +37,7 @@ message Cafe {
   double latitude = 6;
   double longitude = 7;
   Roaster roaster = 8;
+  string website = 9;
 }
 
 message Description {
@@ -59,6 +62,8 @@ message SearchCafesByQueryPerCityRequest {
   int32 len = 5;
   int32 page = 6;
   string city = 7;
+  bool bypass_cache = 8;
+  bool drop_cache = 9;
 }
 
 message SearchCafesByQueryPerCityResponse {

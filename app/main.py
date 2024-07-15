@@ -1,16 +1,13 @@
 import asyncio
-import json
 import logging
+import pickle
 import re
-import sys
-from decimal import Decimal
-from time import perf_counter_ns
 from typing import List
 
-import redis.asyncio as aioredis
+import elasticsearch
+from elasticsearch import AsyncElasticsearch
 from grpc import aio as grpc_aio
 from grpc_reflection.v1alpha import reflection
-from sqlalchemy import Row
 
 from app import settings
 from db import models
@@ -20,10 +17,7 @@ from proto import (
     main_service_pb2,
     main_service_pb2_grpc,
 )
-import pickle
-from elasticsearch import AsyncElasticsearch
-import elasticsearch
-
+from utils import RedisWrapper
 
 logging.basicConfig(
     level=(
@@ -33,24 +27,30 @@ logging.basicConfig(
     )
 )
 
-redis = aioredis.from_url(
-    settings.REDIS_URL,
-    # encoding="utf-8",
-    # decode_responses=True,
-)
+# redis = aioredis.from_url(
+#     settings.REDIS_URL,
+#     # encoding="utf-8",
+#     # decode_responses=True,
+# )
 
+redis = RedisWrapper(settings.REDIS_URL)
 es = AsyncElasticsearch(
-    hosts=["http://localhost:9200"]
+    hosts=[
+        "http://elasticsearch-geoprocessor:9200"
+    ]
 )
 
 sessionmanager.init(settings.POSTGRES_URL)
 
 global_times = []
 
+
 async def clean_string(input_string):
     # Use a regular expression to replace non-letter and non-digit characters with a space
     cleaned_string = re.sub(
-        r"[^a-zA-Zа-яА-Я\d\- ]", "", input_string
+        r"[^a-zA-Zа-яА-Я\d\- ]",
+        "",
+        input_string or "",
     )
     # Convert to lowercase for uniformity
     cleaned_string = cleaned_string.lower()
@@ -138,6 +138,7 @@ async def serialize_cafe_data(session, cafe_id):
     )
     if not cafe:
         return None
+
     res = {
         "id": cafe_id,
         "name": await clean_string(
@@ -149,8 +150,42 @@ async def serialize_cafe_data(session, cafe_id):
         "address": await clean_string(
             cafe.geodata.address
         ),
+        "location_description": (
+            await clean_string(
+                cafe.description.location_description
+            )
+            if cafe.description
+            else None
+        ),
+        "interior_description": (
+            await clean_string(
+                cafe.description.interior_description
+            )
+            if cafe.description
+            else None
+        ),
+        "menu_description": (
+            await clean_string(
+                cafe.description.menu_description
+            )
+            if cafe.description
+            else None
+        ),
+        "place_history": (
+            await clean_string(
+                cafe.description.place_history
+            )
+            if cafe.description
+            else None
+        ),
+        "arbitrary_description": (
+            await clean_string(
+                cafe.description.arbitrary_description
+            )
+            if cafe.description
+            else None
+        ),
     }
-    print(res)
     return res
 
 
@@ -172,16 +207,19 @@ async def serialize_cafe(
         f"Calculated distance: {distance}"
     )
     cafe = {
-        "name": cafe_model.company.name,
+        "name": cafe_model.company.name_ru,
         "address": cafe_model.geodata.address,
         "distance": distance,
         "latitude": cafe_model.geodata.latitude,
         "longitude": cafe_model.geodata.longitude,
+        "website": cafe_model.company.website,
         "roaster": (
             {
                 "name": cafe_model.roaster.name,
-                "website": cafe_model.roaster.website
-            } if cafe_model.roaster else {}
+                "website": cafe_model.roaster.website,
+            }
+            if cafe_model.roaster
+            else {}
         ),
         "description": (
             {
@@ -197,6 +235,50 @@ async def serialize_cafe(
         ),
     }
     return cafe
+
+
+async def refresh_elasticsearch_cafes():
+    try:
+        await es.delete_by_query(
+            index="cafes", query={"match_all": {}}
+        )
+    except elasticsearch.NotFoundError:
+        index_body = {
+            "settings": {
+                "number_of_shards": 1,
+                "number_of_replicas": 1,
+            },
+            "mappings": {
+                "properties": {
+                    "name": {"type": "text"},
+                    "name_ru": {"type": "text"},
+                    "address": {"type": "text"},
+                    "id": {"type": "text"},
+                    "location_description": {
+                        "type": "text"
+                    },
+                    "interior_description": {
+                        "type": "text"
+                    },
+                    "menu_description": {
+                        "type": "text"
+                    },
+                    "place_history": {
+                        "type": "text"
+                    },
+                    "arbitrary_description": {
+                        "type": "text"
+                    },
+                }
+            },
+        }
+        await es.indices.create(
+            index="cafes", body=index_body
+        )
+
+    await sync_cafes_to_elasticsearch(
+        sessionmanager.session
+    )
 
 
 async def fetch_cafe_details(
@@ -247,6 +329,9 @@ class CafeServiceServicer(
         context,  # I don't have enough time to completely rewrite it.
     ):
         return_length = request.len or 10
+        if request.drop_cache:
+            await redis.drop_cache("cafes")
+            logging.info("Dropped cache.")
         logging.info(
             "Starting ListCafesPerCity method."
         )
@@ -254,13 +339,11 @@ class CafeServiceServicer(
             response = (
                 main_service_pb2.ListCafesPerCityResponse()
             )
-            global_cache_key = f"cafes:general:{request.city},{round(request.latitude,3)},{round(request.longitude,3)}"
+            global_cache_key = f"cafes:general:{request.city},{round(request.latitude, 3)},{round(request.longitude, 3)}"
             if response_bytes := await redis.get(
                 global_cache_key
             ):
-                res = pickle.loads(
-                    response_bytes
-                )
+                res = pickle.loads(response_bytes)
                 return res
             async with sessionmanager.session() as session:
                 city = request.city or "Moscow"
@@ -276,13 +359,16 @@ class CafeServiceServicer(
                         cafes_bytes,
                     )
                 else:
-                    cafes_data = await models.City.get_cafes(
-                        session, city
+                    # cafes_data = await models.Country.get_cafes(
+                    #     session, "Russia"
+                    # )
+                    cafes_data = await models.Country.get_all_cafes_regardless(
+                        session
                     )
                     await redis.set(
                         city_cache_key,
                         pickle.dumps(cafes_data),
-                        300,
+                        180,
                     )
 
                 logging.debug(
@@ -352,15 +438,28 @@ class CafeServiceServicer(
                     request.latitude,
                     request.longitude,
                 )
-                description = cafe.get("description")
+                description = cafe.get(
+                    "description"
+                )
                 roaster = cafe.get("roaster")
                 cafe_obj = main_service_pb2.Cafe(
                     name=cafe.get("name"),
                     address=cafe.get("address"),
                     distance=cafe.get("distance"),
                     latitude=cafe.get("latitude"),
-                    roaster=(main_service_pb2.Roaster(name = roaster.get('name'), website=roaster.get('website'),) if roaster else None),
-
+                    roaster=(
+                        main_service_pb2.Roaster(
+                            name=roaster.get(
+                                "name"
+                            ),
+                            website=roaster.get(
+                                "website"
+                            ),
+                        )
+                        if roaster
+                        else None
+                    ),
+                    website=cafe.get("website"),
                     longitude=cafe.get(
                         "longitude"
                     ),
@@ -378,8 +477,12 @@ class CafeServiceServicer(
                             place_history=description.get(
                                 "place_history"
                             ),
-                            arbitrary_description=description.get("arbitrary_description"),
-                            image_uuid=description.get("image_uuid"),
+                            arbitrary_description=description.get(
+                                "arbitrary_description"
+                            ),
+                            image_uuid=description.get(
+                                "image_uuid"
+                            ),
                         )
                         if description
                         else None
@@ -402,7 +505,7 @@ class CafeServiceServicer(
     async def SearchCafesByQueryPerCity(
         self, request, context
     ):
-        search_query = request.query
+        search_query = request.query or ""
         city = request.city or "Moscow"
         limit = request.len or 10
         logging.info(
@@ -420,12 +523,19 @@ class CafeServiceServicer(
             tokens = (
                 await clean_string(search_query)
             ).split(" ")
+            if settings.DEBUG:
+                print(tokens)
             clauses = []
             for token in tokens:
                 for field in [
                     "name",
                     "name_ru",
                     "address",
+                    "location_description",
+                    "interior_description",
+                    "menu_description",
+                    "place_history",
+                    "arbitrary_description",
                 ]:
                     clauses.append(
                         {
@@ -441,7 +551,7 @@ class CafeServiceServicer(
                     clauses.append(
                         {
                             "wildcard": {
-                                "address": {
+                                field: {
                                     "value": wildcard_token
                                 }
                             }
@@ -467,6 +577,13 @@ class CafeServiceServicer(
             ]
 
             if not cafe_ids:
+                if not await redis.get(
+                    "freshness"
+                ):
+                    await refresh_elasticsearch_cafes()
+                    await redis.set(
+                        "freshness", "true", 180
+                    )
                 return (
                     main_service_pb2.SearchCafesByQueryPerCityResponse()
                 )
@@ -502,6 +619,9 @@ class CafeServiceServicer(
                 pickle.dumps(response),
                 180,
             )
+            if settings.DEBUG:
+                print(response.cafes)
+
             return response
 
         except Exception as e:
@@ -511,42 +631,19 @@ class CafeServiceServicer(
             raise
 
 
-
 class ArbitraryJSONServiceServicer(
     main_service_pb2_grpc.ArbitraryJSONServiceServicer
 ):
     async def GetArbitraryJSON(
         self, request, context
     ):
-        return main_service_pb2.GetArbitraryJSONResponse(json_data=request.json_data)
+        return main_service_pb2.GetArbitraryJSONResponse(
+            json_data=request.json_data
+        )
+
 
 async def serve():
-    # try:
-    #     await es.delete_by_query(
-    #         index="cafes", query={"match_all": {}}
-    #     )
-    # except elasticsearch.NotFoundError:
-    #     index_body = {
-    #         "settings": {
-    #             "number_of_shards": 1,
-    #             "number_of_replicas": 1,
-    #         },
-    #         "mappings": {
-    #             "properties": {
-    #                 "name": {"type": "text"},
-    #                 "name_ru": {"type": "text"},
-    #                 "address": {"type": "text"},
-    #                 "id": {"type": "text"},
-    #             }
-    #         },
-    #     }
-    #     await es.indices.create(
-    #         index="cafes", body=index_body
-    #     )
-    #
-    # await sync_cafes_to_elasticsearch(
-    #     sessionmanager.session
-    # )
+    await refresh_elasticsearch_cafes()
 
     server = grpc_aio.server()
     main_service_pb2_grpc.add_CityCafeServiceServicer_to_server(

@@ -3,49 +3,108 @@
 # source: proto/main_service.proto
 # Protobuf Python Version: 4.25.1
 """Generated protocol buffer code."""
-from google.protobuf import descriptor as _descriptor
-from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import symbol_database as _symbol_database
-from google.protobuf.internal import builder as _builder
+from google.protobuf import (
+    descriptor as _descriptor,
+)
+from google.protobuf import (
+    descriptor_pool as _descriptor_pool,
+)
+from google.protobuf import (
+    symbol_database as _symbol_database,
+)
+from google.protobuf.internal import (
+    builder as _builder,
+)
+
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
 
 
-from google.protobuf import struct_pb2 as google_dot_protobuf_dot_struct__pb2
+from google.protobuf import (
+    struct_pb2 as google_dot_protobuf_dot_struct__pb2,
+)
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x18proto/main_service.proto\x12\x04main\x1a\x1cgoogle/protobuf/struct.proto\"w\n\x17ListCafesPerCityRequest\x12\x10\n\x08latitude\x18\x01 \x01(\x01\x12\x11\n\tlongitude\x18\x02 \x01(\x01\x12\x0e\n\x06radius\x18\x03 \x01(\x01\x12\x0b\n\x03len\x18\x04 \x01(\x05\x12\x0c\n\x04page\x18\x05 \x01(\x05\x12\x0c\n\x04\x63ity\x18\x06 \x01(\t\"5\n\x18ListCafesPerCityResponse\x12\x19\n\x05\x63\x61\x66\x65s\x18\x01 \x03(\x0b\x32\n.main.Cafe\"\xb3\x01\n\x04\x43\x61\x66\x65\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x10\n\x08\x64istance\x18\x02 \x01(\x01\x12\x0f\n\x07\x61\x64\x64ress\x18\x03 \x01(\t\x12\r\n\x05photo\x18\x04 \x01(\t\x12&\n\x0b\x64\x65scription\x18\x05 \x01(\x0b\x32\x11.main.Description\x12\x10\n\x08latitude\x18\x06 \x01(\x01\x12\x11\n\tlongitude\x18\x07 \x01(\x01\x12\x1e\n\x07roaster\x18\x08 \x01(\x0b\x32\r.main.Roaster\"\xad\x01\n\x0b\x44\x65scription\x12\x1c\n\x14location_description\x18\x01 \x01(\t\x12\x1c\n\x14interior_description\x18\x02 \x01(\t\x12\x18\n\x10menu_description\x18\x03 \x01(\t\x12\x15\n\rplace_history\x18\x04 \x01(\t\x12\x1d\n\x15\x61rbitrary_description\x18\x05 \x01(\t\x12\x12\n\nimage_uuid\x18\x06 \x01(\t\"(\n\x07Roaster\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0f\n\x07website\x18\x02 \x01(\t\"\x8f\x01\n SearchCafesByQueryPerCityRequest\x12\r\n\x05query\x18\x01 \x01(\t\x12\x10\n\x08latitude\x18\x02 \x01(\x01\x12\x11\n\tlongitude\x18\x03 \x01(\x01\x12\x0e\n\x06radius\x18\x04 \x01(\x01\x12\x0b\n\x03len\x18\x05 \x01(\x05\x12\x0c\n\x04page\x18\x06 \x01(\x05\x12\x0c\n\x04\x63ity\x18\x07 \x01(\t\">\n!SearchCafesByQueryPerCityResponse\x12\x19\n\x05\x63\x61\x66\x65s\x18\x01 \x03(\x0b\x32\n.main.Cafe\"\'\n\x15GetCafeDetailsRequest\x12\x0e\n\x06\x63\x61\x66\x65Id\x18\x01 \x01(\t\"A\n\x13\x43\x61\x66\x65\x44\x65tailsResponse\x12\n\n\x02id\x18\x01 \x01(\t\x12\x0c\n\x04menu\x18\x02 \x01(\t\x12\x10\n\x08schedule\x18\x03 \x01(\t\"E\n\x17GetArbitraryJSONRequest\x12*\n\tjson_data\x18\x01 \x01(\x0b\x32\x17.google.protobuf.Struct\"F\n\x18GetArbitraryJSONResponse\x12*\n\tjson_data\x18\x01 \x01(\x0b\x32\x17.google.protobuf.Struct2\xd6\x01\n\x0f\x43ityCafeService\x12S\n\x10ListCafesPerCity\x12\x1d.main.ListCafesPerCityRequest\x1a\x1e.main.ListCafesPerCityResponse\"\x00\x12n\n\x19SearchCafesByQueryPerCity\x12&.main.SearchCafesByQueryPerCityRequest\x1a\'.main.SearchCafesByQueryPerCityResponse\"\x00\x32k\n\x14\x41rbitraryJSONService\x12S\n\x10GetArbitraryJSON\x12\x1d.main.GetArbitraryJSONRequest\x1a\x1e.main.GetArbitraryJSONResponse\"\x00\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
+    b'\n\x18proto/main_service.proto\x12\x04main\x1a\x1cgoogle/protobuf/struct.proto"\xa1\x01\n\x17ListCafesPerCityRequest\x12\x10\n\x08latitude\x18\x01 \x01(\x01\x12\x11\n\tlongitude\x18\x02 \x01(\x01\x12\x0e\n\x06radius\x18\x03 \x01(\x01\x12\x0b\n\x03len\x18\x04 \x01(\x05\x12\x0c\n\x04page\x18\x05 \x01(\x05\x12\x0c\n\x04\x63ity\x18\x06 \x01(\t\x12\x14\n\x0c\x62ypass_cache\x18\x07 \x01(\x08\x12\x12\n\ndrop_cache\x18\x08 \x01(\x08"5\n\x18ListCafesPerCityResponse\x12\x19\n\x05\x63\x61\x66\x65s\x18\x01 \x03(\x0b\x32\n.main.Cafe"\xc4\x01\n\x04\x43\x61\x66\x65\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x10\n\x08\x64istance\x18\x02 \x01(\x01\x12\x0f\n\x07\x61\x64\x64ress\x18\x03 \x01(\t\x12\r\n\x05photo\x18\x04 \x01(\t\x12&\n\x0b\x64\x65scription\x18\x05 \x01(\x0b\x32\x11.main.Description\x12\x10\n\x08latitude\x18\x06 \x01(\x01\x12\x11\n\tlongitude\x18\x07 \x01(\x01\x12\x1e\n\x07roaster\x18\x08 \x01(\x0b\x32\r.main.Roaster\x12\x0f\n\x07website\x18\t \x01(\t"\xad\x01\n\x0b\x44\x65scription\x12\x1c\n\x14location_description\x18\x01 \x01(\t\x12\x1c\n\x14interior_description\x18\x02 \x01(\t\x12\x18\n\x10menu_description\x18\x03 \x01(\t\x12\x15\n\rplace_history\x18\x04 \x01(\t\x12\x1d\n\x15\x61rbitrary_description\x18\x05 \x01(\t\x12\x12\n\nimage_uuid\x18\x06 \x01(\t"(\n\x07Roaster\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0f\n\x07website\x18\x02 \x01(\t"\xb9\x01\n SearchCafesByQueryPerCityRequest\x12\r\n\x05query\x18\x01 \x01(\t\x12\x10\n\x08latitude\x18\x02 \x01(\x01\x12\x11\n\tlongitude\x18\x03 \x01(\x01\x12\x0e\n\x06radius\x18\x04 \x01(\x01\x12\x0b\n\x03len\x18\x05 \x01(\x05\x12\x0c\n\x04page\x18\x06 \x01(\x05\x12\x0c\n\x04\x63ity\x18\x07 \x01(\t\x12\x14\n\x0c\x62ypass_cache\x18\x08 \x01(\x08\x12\x12\n\ndrop_cache\x18\t \x01(\x08">\n!SearchCafesByQueryPerCityResponse\x12\x19\n\x05\x63\x61\x66\x65s\x18\x01 \x03(\x0b\x32\n.main.Cafe"\'\n\x15GetCafeDetailsRequest\x12\x0e\n\x06\x63\x61\x66\x65Id\x18\x01 \x01(\t"A\n\x13\x43\x61\x66\x65\x44\x65tailsResponse\x12\n\n\x02id\x18\x01 \x01(\t\x12\x0c\n\x04menu\x18\x02 \x01(\t\x12\x10\n\x08schedule\x18\x03 \x01(\t"E\n\x17GetArbitraryJSONRequest\x12*\n\tjson_data\x18\x01 \x01(\x0b\x32\x17.google.protobuf.Struct"F\n\x18GetArbitraryJSONResponse\x12*\n\tjson_data\x18\x01 \x01(\x0b\x32\x17.google.protobuf.Struct2\xd6\x01\n\x0f\x43ityCafeService\x12S\n\x10ListCafesPerCity\x12\x1d.main.ListCafesPerCityRequest\x1a\x1e.main.ListCafesPerCityResponse"\x00\x12n\n\x19SearchCafesByQueryPerCity\x12&.main.SearchCafesByQueryPerCityRequest\x1a\'.main.SearchCafesByQueryPerCityResponse"\x00\x32k\n\x14\x41rbitraryJSONService\x12S\n\x10GetArbitraryJSON\x12\x1d.main.GetArbitraryJSONRequest\x1a\x1e.main.GetArbitraryJSONResponse"\x00\x62\x06proto3'
+)
 
 _globals = globals()
-_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
-_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'proto.main_service_pb2', _globals)
+_builder.BuildMessageAndEnumDescriptors(
+    DESCRIPTOR, _globals
+)
+_builder.BuildTopDescriptorsAndMessages(
+    DESCRIPTOR, "proto.main_service_pb2", _globals
+)
 if _descriptor._USE_C_DESCRIPTORS == False:
-  DESCRIPTOR._options = None
-  _globals['_LISTCAFESPERCITYREQUEST']._serialized_start=64
-  _globals['_LISTCAFESPERCITYREQUEST']._serialized_end=183
-  _globals['_LISTCAFESPERCITYRESPONSE']._serialized_start=185
-  _globals['_LISTCAFESPERCITYRESPONSE']._serialized_end=238
-  _globals['_CAFE']._serialized_start=241
-  _globals['_CAFE']._serialized_end=420
-  _globals['_DESCRIPTION']._serialized_start=423
-  _globals['_DESCRIPTION']._serialized_end=596
-  _globals['_ROASTER']._serialized_start=598
-  _globals['_ROASTER']._serialized_end=638
-  _globals['_SEARCHCAFESBYQUERYPERCITYREQUEST']._serialized_start=641
-  _globals['_SEARCHCAFESBYQUERYPERCITYREQUEST']._serialized_end=784
-  _globals['_SEARCHCAFESBYQUERYPERCITYRESPONSE']._serialized_start=786
-  _globals['_SEARCHCAFESBYQUERYPERCITYRESPONSE']._serialized_end=848
-  _globals['_GETCAFEDETAILSREQUEST']._serialized_start=850
-  _globals['_GETCAFEDETAILSREQUEST']._serialized_end=889
-  _globals['_CAFEDETAILSRESPONSE']._serialized_start=891
-  _globals['_CAFEDETAILSRESPONSE']._serialized_end=956
-  _globals['_GETARBITRARYJSONREQUEST']._serialized_start=958
-  _globals['_GETARBITRARYJSONREQUEST']._serialized_end=1027
-  _globals['_GETARBITRARYJSONRESPONSE']._serialized_start=1029
-  _globals['_GETARBITRARYJSONRESPONSE']._serialized_end=1099
-  _globals['_CITYCAFESERVICE']._serialized_start=1102
-  _globals['_CITYCAFESERVICE']._serialized_end=1316
-  _globals['_ARBITRARYJSONSERVICE']._serialized_start=1318
-  _globals['_ARBITRARYJSONSERVICE']._serialized_end=1425
+    DESCRIPTOR._options = None
+    _globals[
+        "_LISTCAFESPERCITYREQUEST"
+    ]._serialized_start = 65
+    _globals[
+        "_LISTCAFESPERCITYREQUEST"
+    ]._serialized_end = 226
+    _globals[
+        "_LISTCAFESPERCITYRESPONSE"
+    ]._serialized_start = 228
+    _globals[
+        "_LISTCAFESPERCITYRESPONSE"
+    ]._serialized_end = 281
+    _globals["_CAFE"]._serialized_start = 284
+    _globals["_CAFE"]._serialized_end = 480
+    _globals["_DESCRIPTION"]._serialized_start = (
+        483
+    )
+    _globals["_DESCRIPTION"]._serialized_end = 656
+    _globals["_ROASTER"]._serialized_start = 658
+    _globals["_ROASTER"]._serialized_end = 698
+    _globals[
+        "_SEARCHCAFESBYQUERYPERCITYREQUEST"
+    ]._serialized_start = 701
+    _globals[
+        "_SEARCHCAFESBYQUERYPERCITYREQUEST"
+    ]._serialized_end = 886
+    _globals[
+        "_SEARCHCAFESBYQUERYPERCITYRESPONSE"
+    ]._serialized_start = 888
+    _globals[
+        "_SEARCHCAFESBYQUERYPERCITYRESPONSE"
+    ]._serialized_end = 950
+    _globals[
+        "_GETCAFEDETAILSREQUEST"
+    ]._serialized_start = 952
+    _globals[
+        "_GETCAFEDETAILSREQUEST"
+    ]._serialized_end = 991
+    _globals[
+        "_CAFEDETAILSRESPONSE"
+    ]._serialized_start = 993
+    _globals[
+        "_CAFEDETAILSRESPONSE"
+    ]._serialized_end = 1058
+    _globals[
+        "_GETARBITRARYJSONREQUEST"
+    ]._serialized_start = 1060
+    _globals[
+        "_GETARBITRARYJSONREQUEST"
+    ]._serialized_end = 1129
+    _globals[
+        "_GETARBITRARYJSONRESPONSE"
+    ]._serialized_start = 1131
+    _globals[
+        "_GETARBITRARYJSONRESPONSE"
+    ]._serialized_end = 1201
+    _globals[
+        "_CITYCAFESERVICE"
+    ]._serialized_start = 1204
+    _globals[
+        "_CITYCAFESERVICE"
+    ]._serialized_end = 1418
+    _globals[
+        "_ARBITRARYJSONSERVICE"
+    ]._serialized_start = 1420
+    _globals[
+        "_ARBITRARYJSONSERVICE"
+    ]._serialized_end = 1527
 # @@protoc_insertion_point(module_scope)
